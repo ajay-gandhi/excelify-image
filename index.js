@@ -82,6 +82,7 @@ module.exports = (path) => {
           // Create custom width columns
           let cols = new libxml.Element(xml, 'cols');
           const ncols = image[0].length;
+          /*
           cols.node('col').attr({
             min: 1,
             max: ncols,
@@ -90,9 +91,10 @@ module.exports = (path) => {
           });
 
           sheet_format.addNextSibling(cols);
+          */
 
           // Create cells
-          let sheet_data = xml.childNodes()[4];
+          let sheet_data = xml.childNodes()[3];
           const nrows = image.length;
           for (let j = 0; j < nrows; j++) {
             // Create row

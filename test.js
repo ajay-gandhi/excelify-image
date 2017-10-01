@@ -1,5 +1,5 @@
 
 const excelify = require('./index');
 
-excelify('./icon.jpg');
+excelify('./icon.gif');
 
