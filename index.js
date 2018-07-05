@@ -1,6 +1,6 @@
 'use strict';
 
-const lwip     = require('lwip'),
+const jimp     = require('jimp'),
       unzip    = require('unzip2'),
       archiver = require('archiver'),
       fs       = require('fs'),
@@ -135,21 +135,23 @@ module.exports = (path) => {
  * Zips the files back into the xlsx file
  */
 function rezip_xlsx() {
-  var output = fs.createWriteStream('./output.xlsx');
-  var archive = archiver('zip');
+  console.log("Please manually zip for now:");
+  console.log("  zip -r output.xlsx xl/ docProps/ ...");
+  // var output = fs.createWriteStream('./output.xlsx');
+  // var archive = archiver('zip');
 
-  console.log('zipping');
+  // console.log('zipping');
 
-  output.on('close', () => {
-    console.log("Created output file");
-    //rimraf(__dirname + '/output', () => {
-    //  console.log('Output file saved to ./output.xlsx');
-    //});
-  });
+  // output.on('close', () => {
+    // console.log("Created output file");
+    // //rimraf(__dirname + '/output', () => {
+    // //  console.log('Output file saved to ./output.xlsx');
+    // //});
+  // });
 
-  archive.pipe(output);
-  archive.glob(__dirname + '/output/*');
-  archive.finalize();
+  // archive.pipe(output);
+  // archive.glob(__dirname + '/output/*');
+  // archive.finalize();
 }
 
 /**
@@ -164,52 +166,35 @@ function rezip_xlsx() {
  */
 function asciify_core(path, opts, success_func, failure_func) {
   // First open image to get initial properties
-  lwip.open(path, function(err, image) {
+  jimp.read(path, function(err, image) {
     if (err) return failure_func('Error loading image: ' + err);
 
-    // Setup options
-    let options = {
-      fit:     opts.fit     ? opts.fit               : 'original',
-      width:   opts.width   ? parseInt(opts.width)   : image.width(),
-      height:  opts.height  ? parseInt(opts.height)  : image.height()
+    // Keep list of all colors in the image
+    let color_map = {};
+    let c_list = [];
+
+    // Get and convert pixels
+    let i, j, pixel, color;
+    for (j = 0; j < image.bitmap.height; j++) {
+
+      // Add new array
+      c_list.push([]);
+
+      for (i = 0; i < image.bitmap.width; i++) {
+        pixel = jimp.intToRGBA(image.getPixelColor(i, j));
+        color = rgb_to_hex(pixel.r, pixel.g, pixel.b);
+
+        // Transparency of pixel
+        if (pixel.a) color = (Math.ceil(pixel.a * 2.55)).toString(16) + color;
+        else         color = 'FF' + color;
+
+        color = color.toUpperCase();
+        if (!(color in color_map)) color_map[color] = color;
+        c_list[j].push(color);
+      }
     }
 
-    let new_dims = calculate_dims(image, options);
-
-    // Resize to requested dimensions
-    image.resize(new_dims[0], new_dims[1], function (err, image) {
-      if (err) return failure_func('Error resizing image: ' + err);
-
-      // Keep list of all colors in the image
-      let color_map = {};
-      let c_list = [];
-
-      // Get and convert pixels
-      let i, j, pixel, color;
-      const height = image.height(),
-            width  = image.width();
-      for (j = 0; j < height; j++) {
-
-        // Add new array
-        c_list.push([]);
-
-        for (i = 0; i < width; i++) {
-          pixel = image.getPixel(i, j);
-          color = rgb_to_hex(pixel.r, pixel.g, pixel.b);
-
-          // Transparency of pixel
-          if (pixel.a) color = (Math.ceil(pixel.a * 2.55)).toString(16) + color;
-          else         color = 'FF' + color;
-
-          color = color.toUpperCase();
-          if (!(color in color_map)) color_map[color] = color;
-          c_list[j].push(color);
-        }
-      }
-
-      success_func(color_map, c_list);
-
-    });
+    success_func(color_map, c_list);
   });
 }
 
@@ -247,56 +232,5 @@ function int_to_alpha(val) {
  */
 function rgb_to_hex (r, g, b) {
   return '' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-}
-
-/**
- * Calculates the new dimensions of the image, given the options.
- *
- * @param [Image]  img  - The image (only width and height props needed)
- * @param [Object] opts - The options object
- *
- * @returns [Array] An array of the format [width, height]
- */
-function calculate_dims(img, opts) {
-  switch (opts.fit) {
-
-    // Scale down by width
-    case 'width':
-      return [opts.width, img.height() * (opts.width / img.width())];
-
-    // Scale down by height
-    case 'height':
-      return [img.width() * (opts.height / img.height()), opts.height];
-
-    // Scale by width and height (ignore aspect ratio)
-    case 'none':
-      return [opts.width, opts.height];
-
-    // Scale down to fit inside box matching width/height of options
-    case 'box':
-      var w_ratio = img.width()  / opts.width,
-          h_ratio = img.height() / opts.height,
-          neww, newh;
-
-      if (w_ratio > h_ratio) {
-          newh = Math.round(img.height() / w_ratio);
-          neww = opts.width;
-      } else {
-          neww = Math.round(img.width() / h_ratio);
-          newh = opts.height;
-      }
-      return [neww, newh];
-
-    // Don't change width/height
-    // Also the default in case of bad argument
-    case 'original':
-    default:
-      // Let them know, but continue
-      if (opts.fit !== 'original')
-        console.error('Invalid option "fit", assuming "original"');
-
-      return [img.width(), img.height()];
-
-  }
 }
 
