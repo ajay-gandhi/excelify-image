@@ -1,6 +1,6 @@
 {
   "name": "excelify-image",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Convert images to Excel files",
   "main": "index.js",
   "dependencies": {
@@ -18,6 +18,8 @@
     "image",
     "excel",
     "tiff",
+    "gif",
+    "spreadsheet",
     "microsoft"
   ],
   "author": "Ajay Gandhi",
