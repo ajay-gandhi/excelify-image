@@ -4,9 +4,17 @@ const xl = require("excel4node");
 
 const PIXEL_WIDTH = 2.67;
 const PIXEL_HEIGHT = 16;
+const DEFAULT_OPTIONS = {
+  scale: 1,
+};
 
-module.exports = async (path) => {
-  const { colorList, pixelColorMap } = await parseImage(path);
+module.exports = async (path, opts) => {
+  const options = {
+    ...DEFAULT_OPTIONS,
+    ...(opts || {}),
+  };
+
+  const { colorList, pixelColorMap } = await parseImage(path, options.scale);
 
   // Create a workbook with one sheet
   const workbook = new xl.Workbook();
@@ -49,35 +57,30 @@ module.exports = async (path) => {
  *     ...
  *   ]
  */
-const parseImage = async (path) => {
-  return new Promise((resolve, reject) => {
-    jimp.read(path, (err, image) => {
-      if (err) return reject(err);
+const parseImage = async (path, scale) => {
+  const image = await jimp.read(path);
+  image.scale(scale);
 
-      // Maintain a hash of all colors used in the image
-      // And the 2D array we'll return
-      const colorList = {};
-      const pixelColorMap = [];
+  // Maintain a hash of all colors used in the image
+  // And the 2D array we'll return
+  const colorList = {};
+  const pixelColorMap = [];
 
-      let i, j;
-      for (j = 0; j < image.bitmap.height; j++) {
-        pixelColorMap.push([]);
-        for (i = 0; i < image.bitmap.width; i++) {
-          const color = rgbToHex(jimp.intToRGBA(image.getPixelColor(i, j))).toUpperCase();
-          if (!colorList[color]) colorList[color] = color;
-          pixelColorMap[j].push(color);
-        }
-      }
+  let i, j;
+  for (j = 0; j < image.bitmap.height; j++) {
+    pixelColorMap.push([]);
+    for (i = 0; i < image.bitmap.width; i++) {
+      const color = rgbToHex(jimp.intToRGBA(image.getPixelColor(i, j))).toUpperCase();
+      if (!colorList[color]) colorList[color] = color;
+      pixelColorMap[j].push(color);
+    }
+  }
 
-      resolve({ colorList, pixelColorMap });
-    });
-  });
+  return { colorList, pixelColorMap };
 };
 
 /**
  * Converts given RGB values to a hex string
  */
-const rgbToHex = (p) => {
-  return "#" + ((1 << 24) + (p.r << 16) + (p.g << 8) + p.b).toString(16).slice(1);
-}
+const rgbToHex = p => "#" + ((1 << 24) + (p.r << 16) + (p.g << 8) + p.b).toString(16).slice(1);
 
