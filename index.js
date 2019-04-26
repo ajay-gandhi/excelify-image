@@ -1,129 +1,42 @@
-'use strict';
-
 const jimp     = require('jimp'),
-      unzip    = require('unzip2'),
-      archiver = require('archiver'),
       fs       = require('fs'),
-      rimraf   = require('rimraf'),
-      libxml   = require('libxmljs');
+      xl       = require("excel4node");
+
+const PIXEL_WIDTH = 2.67;
+const PIXEL_HEIGHT = 16;
 
 module.exports = (path) => {
+
   let suc = (c_map, image) => {
-    let done = false;
+    // Create a new instance of a Workbook class
+    const wb = new xl.Workbook();
 
-    // Unzip template
-    fs
-      .createReadStream(__dirname + '/template.xlsx')
-      .pipe(unzip.Extract({ path: 'output/' }))
-      .on('close', () => {
-        // Write styles
-        fs.readFile(__dirname + '/output/xl/styles.xml', (err, data) => {
-          if (err) throw err;
+    // Add Worksheets to the workbook
+    const ws = wb.addWorksheet('Sheet 1');
 
-          let xml = libxml.parseXml(data.toString());
-          let fills = xml.childNodes()[1];
-          let xfs = xml.childNodes()[4];
+    // Create reusable styles for all colors
+    Object.keys(c_map).forEach((color) => {
+      c_map[color] = {
+        fill: {
+          type: "pattern",
+          patternType: "solid",
+          fgColor: color,
+        },
+      };
+    });
 
-          // For each unique color, add an XML element
-          const colors   = Object.keys(c_map),
-                n_colors = colors.length;
-          for (let i = 0; i < n_colors; i++) {
-            c_map[colors[i]] = i + 1;
+    let i, j;
+    for (i = 0; i < image.length; i++) {
+      ws.column(i + 1).setWidth(PIXEL_WIDTH);
+      for (j = 0; j < image[i].length; j++) {
+        if (j === 0) {
+          ws.row(j + 1).setHeight(PIXEL_HEIGHT);
+        }
+        ws.cell(i + 1, j + 1).style(c_map[image[i][j]]);
+      }
+    }
 
-            // Create fill
-            let new_fill = fills.node('fill');
-
-            let new_pfill = new_fill.node('patternFill');
-            new_pfill.attr({ patternType: 'solid' });
-
-            let new_fgc = new_fill.node('fgColor');
-            new_fgc.attr({ rgb: colors[i] });
-
-            let new_bgc = new_fill.node('bgColor');
-            new_bgc.attr({ indexed: '64'});
-
-            // Create xf
-            let new_xf = xfs.node('xf').attr({
-              numFmtId: 0,
-              fontId: 0,
-              fillId: i + 2,
-              borderId: 0,
-              xfId: 0,
-              applyFill: 1
-            });
-          }
-
-          fills.attr({ count: n_colors + 2 });
-          xfs.attr({ count: n_colors + 1 });
-
-          fs.writeFile(__dirname + '/output/xl/styles.xml', xml.toString(false), (err) => {
-            if (err) throw err;
-
-            console.log('done with styles');
-            if (done) rezip_xlsx();
-            else      done = true;
-          });
-        });
-
-        // Write actual data
-        fs.readFile(__dirname + '/output/xl/worksheets/sheet1.xml', (err, data) => {
-          if (err) throw err;
-
-          let xml = libxml.parseXml(data);
-
-          // Fix dimensions
-          let dimension = xml.childNodes()[0];
-          dimension.attr({
-            ref: 'A1:' + int_to_alpha(image[0].length - 1) + image[0].length
-          });
-
-          let sheet_format = xml.childNodes()[2];
-
-          // Create custom width columns
-          let cols = new libxml.Element(xml, 'cols');
-          const ncols = image[0].length;
-          /*
-          cols.node('col').attr({
-            min: 1,
-            max: ncols,
-            width: 2.5,
-            customWidth: 1
-          });
-
-          sheet_format.addNextSibling(cols);
-          */
-
-          // Create cells
-          let sheet_data = xml.childNodes()[3];
-          const nrows = image.length;
-          for (let j = 0; j < nrows; j++) {
-            // Create row
-            let new_row = sheet_data.node('row');
-            new_row.attr({
-              r: j + 1,
-              spans: '1:' + ncols
-            });
-
-            // Add cells
-            for (let i = 0; i < ncols; i++) {
-              let new_cell = new_row.node('c');
-              new_cell.attr({
-                r: int_to_alpha(i) + (j + 1),
-                s: c_map[image[j][i]]
-              });
-            }
-          }
-
-          // Write file and finish up
-          fs.writeFile(__dirname + '/output/xl/worksheets/sheet1.xml', xml.toString(false), (err) => {
-            if (err) throw err;
-
-            console.log('done with data');
-            if (done) rezip_xlsx();
-            else      done = true;
-          });
-        });
-      });
+    wb.write('Excel.xlsx');
   }
   let fai = (msg) => {
     console.log(msg);
@@ -185,8 +98,9 @@ function asciify_core(path, opts, success_func, failure_func) {
         color = rgb_to_hex(pixel.r, pixel.g, pixel.b);
 
         // Transparency of pixel
-        if (pixel.a) color = (Math.ceil(pixel.a * 2.55)).toString(16) + color;
-        else         color = 'FF' + color;
+        // color = 'FF' + color;
+        // if (pixel.a) color = (Math.ceil(pixel.a * 2.55)).toString(16) + color;
+        // else         color = 'FF' + color;
 
         color = color.toUpperCase();
         if (!(color in color_map)) color_map[color] = color;
@@ -231,6 +145,6 @@ function int_to_alpha(val) {
  * Converts RGB values to a hex string
  */
 function rgb_to_hex (r, g, b) {
-  return '' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
