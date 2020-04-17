@@ -47,6 +47,6 @@ if (!path) {
   console.log("Must enter a file to excelify");
   process.exit(1);
 }
-console.log(path, scale);
-// excelify(path, { scale });
+console.log(path, { scale: scale || 1 });
+excelify(path, { scale: scale || 1 });
 
