@@ -5,7 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "excel4node": "^1.7.1",
-    "jimp": "^0.2.28"
+    "jimp": "^0.16.2"
   },
   "devDependencies": {},
   "scripts": {
